@@ -1,0 +1,491 @@
+<!DOCTYPE HTML>
+<html class="no-js" lang="en">
+
+<head>
+    <title>Publish Web</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width">
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge">
+    <link rel="stylesheet" href="libs/css/jquery/jquery.ui.css" type="text/css" />
+    <link rel="stylesheet" href="libs/css/bizagi-font.css" type="text/css" />
+    <link rel="stylesheet" href="libs/css/app.css" type="text/css" />
+    <script type="text/javascript" src="libs/js/app/app.bizagi.min.js"></script>
+</head>
+
+<body class="off-canvas hide-extras">
+
+    
+<!-- *****************************************************************************
+ process-viewer
+ @author: UX-Team
+ @version: 0.1.0
+ @url: http://www.bizagi.com
+ @date: Feb 20, 2018 10:02 AM 
+***************************************************************************** /
+ -->
+
+    <div class="biz-ex-wrapper row"></div>
+
+    <div class="alert-box biz-ex-supported">
+        <p id="biz-ex-support"></p>
+        <a href="http://www.google.com/intl/es-419/chrome/" title="Chrome" target="_blank"><span class="biz-ex-iconbrowser-chrome"></span></a>
+        <a href="http://www.mozilla.org/en-US/firefox/new/" title="Firefox" target="_blank"><span class="biz-ex-iconbrowser-firefox"></span></a>
+        <a href="http://windows.microsoft.com/en-us/internet-explorer/download-ie" title="IE 9+" target="_blank"><span class="biz-ex-iconbrowser-ie"></span></a>
+    </div>
+    <script type="text/javascript" src="libs/js/app/app.ie8detect.js"></script>
+
+    <script src="key.json.js"></script>
+    <script id="json" src="libs/js/json/configuration.json.js"></script>
+
+    <script id="initialization">
+        switch (window.location.protocol) {
+            case 'http:':
+            case 'https:':
+                window.isLocal = false;
+                break;
+            case 'file:':
+                window.isLocal = true;
+                break;
+            default:
+                window.isLocal = false;
+        }
+
+        if (!PublishWebAttributes) {
+            PublishWebAttributes = {
+                useTheme: false
+            }
+        }
+
+        if (PublishWebAttributes.useTheme) {
+            var lessScript = document.createElement('script');
+            lessScript.id = 'responsive-polyfill';
+            lessScript.src = 'libs/js/app/less-1.4.1.min.js';
+            document.write(lessScript.outerHTML);
+        }
+
+
+        if (IsIE8Browser()) {
+            var polyfillEventListener = document.createElement('script');
+            polyfillEventListener.id = 'eventListener-polyfill';
+            polyfillEventListener.src = 'libs/js/app/ie8/addEventListener.min.js';
+            document.write(polyfillEventListener.outerHTML);
+
+            var modifiedKineticJs = document.createElement('script');
+            modifiedKineticJs.id = 'kinetic-ie8';
+            modifiedKineticJs.src = 'libs/js/app/ie8/kinetic.min.js';
+            document.write(modifiedKineticJs.outerHTML);
+
+            var jQueryScriptForIE8 = document.createElement('script');
+            jQueryScriptForIE8.id = 'jquery-ie8';
+            jQueryScriptForIE8.src = 'libs/js/app/ie8/jquery.min.js';
+            document.write(jQueryScriptForIE8.outerHTML);
+
+        } else {
+
+            var jQueryScriptForModernBrowsers = document.createElement('script');
+            jQueryScriptForModernBrowsers.id = 'jquery-modern-browsers';
+            jQueryScriptForModernBrowsers.src = 'libs/js/app/jquery.min.js';
+            document.write(jQueryScriptForModernBrowsers.outerHTML);
+
+            var kineticJs = document.createElement('script');
+            kineticJs.id = 'kinetic';
+            kineticJs.src = 'libs/js/app/kinetic.min.js';
+            document.write(kineticJs.outerHTML);
+        }
+    </script>
+
+    <script src="libs/js/app/process-viewer.libraries.min.js"></script>
+    <script src="libs/js/app/process-viewer.plugins.min.js"></script>
+    <script src="libs/js/app/process-viewer.min.js"></script>
+<!-- 
+	@name: Navigation View Template
+	@view: Bizagi.App.Views.NavigationView
+	@role: Principal
+-->
+<script type="text/x-jquery-tmpl" id="NavigationViewTmpl">
+    <nav id="menu" role="navigation">
+        <ul id="mainNav" class="nav-bar">
+            {{each pages}}
+            <li class="biz-ex-sub-page">
+                <a href="diagram/${id}" class="biz-ex-navigate" title="${name}">
+                    <div class="truncate-text biz-ex-name biz-ex-menu">${name}</div>
+                    {{if Bizagi.Util.getSubProcesses($value) >= 1}}
+                    <div class="biz-ex-ind-container">
+                        <i class="biz-ex-icon-plus bz-icon bz-icon-plus"></i>
+                    </div>
+                    {{/if}}
+                </a>
+                {{if subPages}}
+                <div class="biz-ex-subPages">
+                    {{html Bizagi.Util.renderSubPagesRecursive('NavigationSubViewTmpl',{subPages:subPages})}}
+                </div>
+                {{/if}}
+            </li>
+            {{/each}}
+        </ul>
+    </nav>
+    <div class="biz-gradien-scroll"></div>
+</script>
+<!-- 
+	@name: Container Template
+	@view: General Layout
+-->
+
+<script type="text/x-jquery-tmpl" id="ContainerTmpl">
+    <section id="sidebar" role="complementary">
+      <nav id="sideMenu" role="navigation">
+          <ul id="sideMainNav" class="nav-bar">
+          </ul>
+      </nav>
+      <div class="biz-gradien-scroll"></div>
+  </section>
+  <div class="biz-ex-layout row">
+      <div class="large-3 columns biz-ex-navigation-left hide-for-small"></div>
+      <div class="large-9 columns biz-ex-diagram-update-panel" id="updatePanelDiagram"></div>
+  </div>
+</script>
+<!-- 
+    @name: Header View Template
+    @view: Bizagi.App.Views.HeaderView
+-->
+<script type="text/x-jquery-tmpl" id="HeaderViewTmpl">
+    <div class="large-3 columns biz-ex-logo">
+        <a class="show-for-small button sidebar-button" id="sidebarButton" href="#sidebar">
+            <img src="libs/img/biz-ex-icon-menu.png" />
+        </a>
+        <a href="list/" class="biz-ex-navigate biz-ex-logo-navigate">
+            <i class="biz-ex-logo-img"></i>
+        </a>
+    </div>
+    <div class="large-9 columns biz-ex-top-nav">
+        <a class="biz-ex-back-process"></a>
+        <div class="large-7 columns biz-ex-navigation-data">
+            <h1 class="biz-ex-title-process">
+                <a href="list/" class="biz-ex-navigate" title="${Bizagi.Util.getResource('home')}">${process}</a>
+            </h1>
+            <h2 class="biz-ex-title-diagram" title="${name}">${name}</h2>
+            {{if PublishWebAttributes.showPublishDate}}
+            <p class="biz-ex-time"><time datetime="${publishDate}">${publishDate}</time></p>
+            {{/if}}
+        </div>
+        <nav class="hide-for-small large-5 columns">
+            <ul class="cf biz-ex-user-options">
+                {{if PublishWebAttributes.showPerformersList}}
+                <li>
+                    <a href="dialog/performers" class="biz-ex-icon-performers biz-ex-navigate" title="${Bizagi.Util.getResource('performers')}"></a>
+                </li>
+                {{/if}}
+                <li>
+                    <a href="fullscreen" class="biz-ex-full-screen-modifier biz-ex-navigate" title="${Bizagi.Util.getResource('fullscreen')}">
+                        <i class="bz-icon bz-icon-16 bz-icon-maximize-outline"></i>
+                    </a>
+                </li>
+                {{if !Bizagi.AppModel.personalized}}
+                <li>
+                    <a href="http://www.bizagi.com/" target="_blank" class="biz-ex-bizagi">${Bizagi.Util.getResource('visitBizagi')}</a>
+                </li>
+                {{/if}}
+            </ul>
+        </nav>
+    </div>
+</script>
+ 
+
+/*******************************************************************************
+    @theme: Export Process Viewer
+    @version: 2.0.0
+    @author: UX TEAM at Bizagi
+    @description: Custom theme CSS rules for Process Viewer
+********************************************************************************/
+
+/* ==========================================================================
+   Export process viewer components
+   ========================================================================== */
+
+/* General
+   ========================================================================== */
+
+::-webkit-input-placeholder { color: @navigation-link; }
+
+::-moz-placeholder { color: @navigation-link; }
+
+:-ms-input-placeholder { color: @navigation-link; }
+
+a{
+    color:@navigation-link;
+}
+
+a:hover{
+    color:darken(@navigation-link, 30%) !important;
+}
+
+h1, h2, h3, h4, h5, h6,
+p, span, div,
+body, html{
+    font-family: @font-family, Helvetica, Arial, sans-serif;
+}
+
+
+.biz-ex-dialog-content {
+    font-family: @font-family, Helvetica, Arial, sans-serif !important;
+
+    ul,
+    li,
+    span,
+    table,
+    td,
+    p,
+    h2,
+    h1,
+    div {
+        font-family: @font-family, Helvetica, Arial, sans-serif !important;
+    }
+}
+
+#app-container-view { background: lighten(@navigation, 5%); }
+
+.ui-tooltip.biz-ex-tooltip,
+.ui-tooltip.biz-ex-tooltip-nav {
+    background: @content;
+    color: @content-text;
+}
+
+.ui-tooltip.biz-ex-tooltip:after { border-left-color: @content; }
+
+.ui-tooltip.biz-ex-tooltip-nav:after { border-right-color: @content; }
+
+.biz-gradien-scroll {
+    background: -webkit-linear-gradient(top, transparent 0%, darken(@navigation, 10%) 100%);
+    background:    -moz-linear-gradient(top, transparent 0%, darken(@navigation, 10%) 100%);
+    background: linear-gradient(to bottom, transparent 0%, darken(@navigation, 10%) 100%);
+}
+
+/* Header
+   ========================================================================== */
+
+   .bz-icon{
+       color:@icon-color;
+   }
+
+
+
+.biz-ex-header-view {
+    border-bottom-color: @header-border;
+    a {
+        color: @header-link;
+        &:hover { color: darken(@header-link, 5%); }
+    }
+}
+
+.lt-ie9 .biz-ex-header-view{
+	background:darken(@header, 6%);
+}
+
+.biz-ex-logo {
+    background:darken(@header, 6%);
+    border-right-color: @header-border;
+    border-bottom-color: @header-border;
+}
+
+.biz-ex-top-nav {
+    background: darken(@header, 6%);
+}
+
+.biz-ex-back-process.biz-ex-navigate {
+    border-color: @header-border;
+    background: transparent;
+}
+
+.biz-ex-title-diagram { color: @header-link; }
+
+/* Navigation sidebar
+   ========================================================================== */
+
+#sidebar,
+.biz-ex-navigation-left { background: darken(@navigation, 5%); }
+
+.biz-ex-navigation-left { border-right-color: @navigation-border; }
+
+.biz-ex-search-input,
+.biz-ex-icon-search { background-color: darken(@navigation, 10%); }
+
+.biz-ex-search-input { color: @navigation-link; }
+
+.nav-bar {
+    border-top-color: @navigation-border;
+    .biz-ex-sub-page a { border-bottom-color: @navigation-border; }
+    .biz-ex-sub-page.active { background: fade(@navigation-link, 25%); }
+    a {
+        color: @navigation-link;
+        &:hover {
+            background: darken(@navigation, 10%);
+            color: darken(@navigation-link, 5%);
+        }
+    }
+}
+
+.biz-ex-active.active > a {
+    border-top-color: @navigation-border !important;
+    color: darken(@navigation-link, 40%);
+}
+
+.biz-ex-active.active .biz-ex-ind-container,
+.biz-ex-ind-container { border-right-color: transparent; }
+
+/* Search
+   ========================================================================== */
+
+.biz-ex-search-options {
+    box-shadow: 0 1px 1px darken(@content, 25%);
+    background: fade(@content, 90%);
+}
+
+.biz-ex-search-options:after {
+    border-bottom-color: fade(@content, 90%);
+}
+
+.ui-autocomplete {
+    box-shadow: 0 1px 1px darken(@content, 25%);
+    background: fade(@content, 90%);
+}
+
+.biz-ex-result-name,
+.biz-ex-result-container {
+    color: @content-text !important;
+}
+
+.biz-ex-search-option { color: @navigation-link; }
+
+.biz-ex-search-option.biz-ex-active { color: @content-text; }
+
+/* Content
+   ========================================================================== */
+
+.biz-ex-diagram-data { background: @content; }
+
+.no-touch .bix-ex-figure-panel {
+    border-color: @content-border;
+    background: @content;
+}
+
+h1, h2, h3, h4, h5, h6,
+.biz-ex-diagram-desc-container { color: @content-text; }
+
+.biz-ex-img,
+.biz-ex-diagram-desc:last-child { border-color: lighten(@content-border, 25%); }
+
+
+.biz-ex-expand-button-span {
+    border-color: @navigation-border !important;
+    background: @content;
+    color:@navigation-link;
+}
+
+.biz-ex-badge{
+    border-color: @navigation-border !important;
+}
+
+.biz-ex-navigate:hover .biz-ex-expand-button-span{
+    color:lighten(@navigation-link, 30%) !important;
+}
+
+.biz-ex-expand-button-span::after{
+    border-top-color: lighten(@navigation-link, 30%) !important;
+}
+
+.no-touch .bix-ex-figure-panel:hover{
+    border-color: @hover-dashboard-panel;
+}
+
+/* Modal window
+   ========================================================================== */
+
+.reveal-modal { border-color: @content-border }
+
+.biz-ex-dialog-header { background: lighten(@header, 25%); }
+
+.biz-ex-dialog-details > dt, 
+.biz-ex-dialog-details > dd,
+.biz-ex-dialog-properties .biz-ex-dialog-process-title,
+.biz-ex-performers-list-as-contact span,
+.biz-ex-performers-list-as-contact span:nth-child(even) { color: @content-text; }
+
+.biz-ex-dialog-line { border-color: @content-border; }
+
+.biz-ex-performer-tag { background: darken(@content, 10%); }
+
+.biz-ex-dialog-content.biz-ex-dialog-properties {
+    bottom: 4px;
+    border-top-color: @content-border;
+}
+
+.alert-box {
+    background: darken(@content, 10%) !important;
+    color: @content-text;
+}
+
+.alert-box.biz-ex-alert-message{
+    background: lighten(@alert-box-message, 40%) !important;
+    color: darken(@alert-box-message, 20%);
+}
+
+/* GUID list
+   ========================================================================== */
+
+.biz-ex-guid-wrapper { 
+    border-color: @content-border;
+    background: @content;
+    color: @content-text;
+}
+
+.biz-ex-guid-img { border-color: lighten(@content-border, 25%); }
+
+/* Zoom
+   ========================================================================== */
+
+.zoom-hotspot:hover {
+    border-color: transparent;
+    background-color: fade(@navigation, 50%);
+}
+
+.zoom-pane-preview {
+    border-color: @header-border; 
+}
+
+.zoom-pane-preview .zoom-pane-square {
+    border-color: @navigation-border;
+    background: fade(@navigation, 50%);
+}
+
+.zoom-pane-preview .zoom-pane-square.ui-draggable-dragging {
+    border-color: @header-border;
+    background: fade(@header, 50%);
+}
+
+.zoom-error-image{
+    color: @content-text;
+    span{
+        color: @content-text;
+    }
+}
+
+/* ==========================================================================
+   Mixins
+   ========================================================================== */
+
+.gradient(@start: #EEE, @stop: #FFF) {
+    background: @start;
+    background-image: -webkit-gradient(linear, 50% 0%, 50% 100%, color-stop(0%, @stop), color-stop(100%, @start));
+    background-image: -webkit-linear-gradient(@stop, @start);
+    background-image: -moz-linear-gradient(@stop, @start);
+    background-image: -o-linear-gradient(@stop, @start);
+    background-image: linear-gradient(@stop, @start);
+}
+
+
+
+@import "theme-client.css";
+
+</div>
+	</body>
+</html>
